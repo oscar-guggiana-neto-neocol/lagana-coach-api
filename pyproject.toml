@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=67", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lagana-coach-api"
+version = "0.1.0"
+description = "FastAPI backend for LaganaCoach"
+authors = [{ name = "LaganaCoach Team" }]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.104,<0.111",
+    "uvicorn[standard]>=0.23,<0.28",
+    "python-multipart>=0.0.6",
+    "sqlalchemy>=2.0.23,<3.0",
+    "alembic>=1.11,<2.0",
+    "psycopg2-binary>=2.9,<3.0",
+    "pydantic>=1.10.13,<2.0",
+    "passlib[bcrypt]>=1.7.4,<2.0",
+    "python-jose[cryptography]>=3.3.0,<4.0",
+    "email-validator>=2.0,<3.0",
+    "jinja2>=3.1,<4.0",
+    "reportlab>=4.0,<5.0",
+    "python-dateutil>=2.8,<3.0",
+    "pytz>=2023.3",
+    "python-dotenv>=1.0,<2.0",
+    "httpx>=0.25,<0.28",
+    "typing-extensions>=4.7,<5.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4,<8.0",
+    "pytest-asyncio>=0.21,<0.24",
+    "pytest-cov>=4.1,<5.0",
+    "httpx[cli]>=0.25,<0.28",
+    "flake8>=6.1,<7.0",
+    "black>=23.9,<25.0",
+    "ruff>=0.1.6,<0.5.0"
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning"
+]
+asyncio_mode = "auto"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.per-file-ignores]
+"tests/*" = ["B011"]
