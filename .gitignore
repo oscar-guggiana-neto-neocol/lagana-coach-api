@@ -33,4 +33,5 @@ reports/
 
 # Local files
 *.log
-
+db/*.db
+db/*.sqlite

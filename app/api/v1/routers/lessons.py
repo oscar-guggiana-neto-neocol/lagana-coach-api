@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.api.v1.dependencies import get_current_user, resolve_coach
 from app.db.session import get_db
-from app.models.enums import LessonPaymentStatus, LessonStatus, UserRole
+from app.models.club import Club
+from app.models.court import Court
+from app.models.enums import LessonPaymentStatus, LessonStatus, LessonType, UserRole
 from app.models.lesson import Lesson
 from app.models.player import Player
 from app.models.stroke import Stroke
@@ -27,6 +29,8 @@ def _scoped_query(db: Session, user: User):
 
 
 def _ensure_player_visibility(db: Session, user: User, player_ids: List[int]) -> List[Player]:
+    if not player_ids:
+        return []
     players = db.query(Player).filter(Player.id.in_(player_ids)).all()
     if len(players) != len(set(player_ids)):
         raise HTTPException(status_code=400, detail="One or more players not found")
@@ -45,6 +49,39 @@ def _get_strokes(db: Session, stroke_codes: List[str]) -> List[Stroke]:
     if len(strokes) != len(set(stroke_codes)):
         raise HTTPException(status_code=400, detail="One or more strokes not found")
     return strokes
+
+
+def _resolve_club_id(db: Session, current_user: User, requested_club_id: Optional[int]) -> Optional[int]:
+    if current_user.role == UserRole.coach:
+        coach = resolve_coach(current_user=current_user, db=db)
+        allowed_club_ids = {club.id for club in coach.clubs}
+        if requested_club_id:
+            if requested_club_id not in allowed_club_ids:
+                raise HTTPException(status_code=403, detail="Coach cannot use this club")
+            if not db.get(Club, requested_club_id):
+                raise HTTPException(status_code=404, detail="Club not found")
+            return requested_club_id
+        if coach.default_club_id and coach.default_club_id in allowed_club_ids:
+            return coach.default_club_id
+        if allowed_club_ids:
+            return next(iter(allowed_club_ids))
+        raise HTTPException(status_code=400, detail="Coach is not associated with any club")
+    if requested_club_id:
+        if not db.get(Club, requested_club_id):
+            raise HTTPException(status_code=404, detail="Club not found")
+    return requested_club_id
+
+
+def _get_courts(db: Session, club_id: Optional[int], court_ids: List[int]) -> List[Court]:
+    if not court_ids:
+        return []
+    if not club_id:
+        raise HTTPException(status_code=400, detail="Club is required when selecting courts")
+    unique_ids = list({int(court_id) for court_id in court_ids})
+    courts = db.query(Court).filter(Court.id.in_(unique_ids), Court.club_id == club_id).all()
+    if len(courts) != len(unique_ids):
+        raise HTTPException(status_code=400, detail="One or more courts not found for the selected club")
+    return courts
 
 
 @router.get("/", response_model=PaginatedResponse[LessonRead])
@@ -95,6 +132,8 @@ def create_lesson(
     if current_user.role == UserRole.coach:
         coach_id = resolve_coach(current_user=current_user, db=db).id
 
+    club_id = _resolve_club_id(db, current_user, payload.club_id)
+
     duration = calculate_duration_minutes(payload.start_time, payload.end_time)
 
     reimbursement = payload.club_reimbursement_amount
@@ -103,7 +142,7 @@ def create_lesson(
 
     lesson = Lesson(
         coach_id=coach_id,
-        club_id=payload.club_id,
+        club_id=club_id,
         date=payload.date,
         start_time=payload.start_time,
         end_time=payload.end_time,
@@ -118,8 +157,12 @@ def create_lesson(
     db.add(lesson)
     db.flush()
 
-    lesson.players = _ensure_player_visibility(db, current_user, payload.player_ids)
+    player_ids = payload.player_ids or []
+    if payload.type != LessonType.club and not player_ids:
+        raise HTTPException(status_code=400, detail="At least one player is required for this lesson type")
+    lesson.players = _ensure_player_visibility(db, current_user, player_ids)
     lesson.strokes = _get_strokes(db, [code.value for code in payload.stroke_codes])
+    lesson.courts = _get_courts(db, club_id, payload.court_ids)
 
     db.commit()
     db.refresh(lesson)
@@ -156,6 +199,15 @@ def update_lesson(
     data = payload.dict(exclude_unset=True)
     player_ids = data.pop("player_ids", None)
     stroke_codes = data.pop("stroke_codes", None)
+    court_ids = data.pop("court_ids", None)
+
+    if current_user.role == UserRole.coach or "club_id" in data:
+        requested_club_id = data.get("club_id", lesson.club_id)
+        resolved_club_id = _resolve_club_id(db, current_user, requested_club_id)
+        data["club_id"] = resolved_club_id
+    target_club_id = data.get("club_id", lesson.club_id)
+
+    new_type = data.get("type", lesson.type)
 
     start_time = data.get("start_time", lesson.start_time)
     end_time = data.get("end_time", lesson.end_time)
@@ -169,10 +221,16 @@ def update_lesson(
         setattr(lesson, field, value)
 
     if player_ids is not None:
+        if new_type != LessonType.club and not player_ids:
+            raise HTTPException(status_code=400, detail="At least one player is required for this lesson type")
         lesson.players = _ensure_player_visibility(db, current_user, player_ids)
     if stroke_codes is not None:
         stroke_values = [code.value if hasattr(code, "value") else code for code in stroke_codes]
         lesson.strokes = _get_strokes(db, stroke_values)
+    if court_ids is not None:
+        lesson.courts = _get_courts(db, target_club_id, court_ids)
+    elif "club_id" in data and lesson.courts:
+        lesson.courts = [court for court in lesson.courts if court.club_id == target_club_id]
 
     db.add(lesson)
     db.commit()

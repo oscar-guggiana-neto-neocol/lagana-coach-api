@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     jwt_access_expires_min: int = 30
     jwt_refresh_expires_min: int = 60 * 24 * 7
 
-    allowed_origins: List[str] = Field(default_factory=list)
+    allowed_origins: Optional[str] = None
 
     smtp_host: Optional[str] = None
     smtp_port: Optional[int] = None
@@ -40,13 +40,12 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = False
 
-    @validator("allowed_origins", pre=True)
-    def split_origins(cls, value: Optional[str]) -> List[str]:  # type: ignore[override]
-        if value is None or value == "":
-            return []
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    @property
+    def allowed_origins_list(self) -> List[str]:
+        """Parse allowed origins from comma-separated string or return default."""
+        if not self.allowed_origins:
+            return ["http://localhost:8080"]
+        return [origin.strip() for origin in self.allowed_origins.split(",") if origin.strip()]
 
     @property
     def sqlalchemy_database_uri(self) -> str:

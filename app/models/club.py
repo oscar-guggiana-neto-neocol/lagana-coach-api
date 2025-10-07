@@ -4,9 +4,12 @@ from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base, TimestampMixin
+from app.models.associations import coach_club_table
 
 if TYPE_CHECKING:
     from app.models.lesson import Lesson
+    from app.models.coach import Coach
+    from app.models.court import Court
 
 
 class Club(TimestampMixin, Base):
@@ -24,6 +27,15 @@ class Club(TimestampMixin, Base):
 
     lessons: Mapped[List["Lesson"]] = relationship(
         "Lesson", back_populates="club", lazy="selectin"
+    )
+    courts: Mapped[List["Court"]] = relationship(
+        "Court", back_populates="club", cascade="all, delete-orphan", lazy="selectin"
+    )
+    coaches: Mapped[List["Coach"]] = relationship(
+        "Coach",
+        secondary=coach_club_table,
+        back_populates="clubs",
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:

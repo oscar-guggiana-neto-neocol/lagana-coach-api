@@ -3,15 +3,15 @@ from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
 from app.db.base_class import Base, TimestampMixin
-from app.models.associations import player_coach_table
+from app.models.associations import player_coach_table, coach_club_table
 
 if TYPE_CHECKING:
     from app.models.user import User
     from app.models.player import Player
     from app.models.lesson import Lesson
     from app.models.invoice import Invoice
+    from app.models.club import Club
 
 
 class Coach(TimestampMixin, Base):
@@ -35,6 +35,7 @@ class Coach(TimestampMixin, Base):
     swift_bic: Mapped[Optional[str]] = mapped_column(String(11))
     hourly_rate: Mapped[Optional[Decimal]] = mapped_column(Numeric(10, 2))
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    default_club_id: Mapped[Optional[int]] = mapped_column(ForeignKey("clubs.id", ondelete="SET NULL"))
 
     user: Mapped["User"] = relationship("User", back_populates="coach", lazy="joined")
     players: Mapped[List["Player"]] = relationship(
@@ -52,6 +53,17 @@ class Coach(TimestampMixin, Base):
         "Invoice",
         back_populates="coach",
         lazy="selectin",
+    )
+    clubs: Mapped[List["Club"]] = relationship(
+        "Club",
+        secondary=coach_club_table,
+        back_populates="coaches",
+        lazy="selectin",
+    )
+    default_club: Mapped[Optional["Club"]] = relationship(
+        "Club",
+        foreign_keys=[default_club_id],
+        lazy="joined",
     )
 
     def __repr__(self) -> str:

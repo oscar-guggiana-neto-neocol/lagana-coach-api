@@ -1,7 +1,8 @@
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
 
+from app.schemas.court import CourtRead
 
 class ClubBase(BaseModel):
     name: str
@@ -31,6 +32,7 @@ class ClubUpdate(BaseModel):
 
 class ClubRead(ClubBase):
     id: int
+    courts: List[CourtRead] = []
 
     class Config:
         orm_mode = True

@@ -17,7 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base, TimestampMixin
-from app.models.associations import lesson_players_table, lesson_strokes_table
+from app.models.associations import lesson_players_table, lesson_strokes_table, lesson_courts_table
 from app.models.enums import LessonPaymentStatus, LessonStatus, LessonType
 
 if TYPE_CHECKING:
@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from app.models.player import Player
     from app.models.stroke import Stroke
     from app.models.invoice_item import InvoiceItem
+    from app.models.court import Court
 
 
 class Lesson(TimestampMixin, Base):
@@ -62,6 +63,12 @@ class Lesson(TimestampMixin, Base):
     strokes: Mapped[List["Stroke"]] = relationship(
         "Stroke",
         secondary=lesson_strokes_table,
+        lazy="selectin",
+    )
+    courts: Mapped[List["Court"]] = relationship(
+        "Court",
+        secondary=lesson_courts_table,
+        back_populates="lessons",
         lazy="selectin",
     )
     invoice_items: Mapped[List["InvoiceItem"]] = relationship(

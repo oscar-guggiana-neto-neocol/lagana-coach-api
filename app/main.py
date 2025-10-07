@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def create_application() -> FastAPI:
     app = FastAPI(title=settings.project_name, debug=settings.debug)
 
-    origins = settings.allowed_origins or ["http://localhost:8080"]
+    origins = settings.allowed_origins_list
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

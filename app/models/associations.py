@@ -32,3 +32,25 @@ lesson_strokes_table = Table(
     Index("ix_lesson_strokes_lesson_id", "lesson_id"),
     Index("ix_lesson_strokes_stroke_id", "stroke_id"),
 )
+
+coach_club_table = Table(
+    "coach_club_memberships",
+    Base.metadata,
+    Column("coach_id", ForeignKey("coaches.id", ondelete="CASCADE"), primary_key=True),
+    Column("club_id", ForeignKey("clubs.id", ondelete="CASCADE"), primary_key=True),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    UniqueConstraint("coach_id", "club_id", name="uq_coach_club"),
+    Index("ix_coach_club_memberships_coach_id", "coach_id"),
+    Index("ix_coach_club_memberships_club_id", "club_id"),
+)
+
+lesson_courts_table = Table(
+    "lesson_courts",
+    Base.metadata,
+    Column("lesson_id", ForeignKey("lessons.id", ondelete="CASCADE"), primary_key=True),
+    Column("court_id", ForeignKey("courts.id", ondelete="CASCADE"), primary_key=True),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    UniqueConstraint("lesson_id", "court_id", name="uq_lesson_court"),
+    Index("ix_lesson_courts_lesson_id", "lesson_id"),
+    Index("ix_lesson_courts_court_id", "court_id"),
+)
